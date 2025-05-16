@@ -71,14 +71,22 @@ const WorkshopDetail = () => {
 
   useEffect(() => {
     const fetchWorkshopAndLessons = async () => {
-      if (!id) return;
+      if (!id) {
+        console.error("No workshop ID provided");
+        toast.error("Workshop ID is missing");
+        navigate("/dashboard");
+        return;
+      }
       
       try {
+        console.log("Fetching workshop with ID:", id);
+        
         // Fetch workshop details
         const workshopDoc = await getDoc(doc(db, "workshops", id));
         
         if (workshopDoc.exists()) {
           const workshopData = { id: workshopDoc.id, ...workshopDoc.data() } as Workshop;
+          console.log("Workshop data:", workshopData);
           setWorkshop(workshopData);
           
           // Fetch lessons
@@ -94,6 +102,7 @@ const WorkshopDetail = () => {
             ...doc.data()
           })) as Lesson[];
           
+          console.log("Lessons:", lessonsData);
           setLessons(lessonsData);
           
           // Check if user is registered
@@ -107,11 +116,15 @@ const WorkshopDetail = () => {
             const registrationsSnapshot = await getDocs(registrationsQuery);
             
             if (!registrationsSnapshot.empty) {
+              console.log("User is registered for this workshop");
               setIsRegistered(true);
               setRegistrationId(registrationsSnapshot.docs[0].id);
+            } else {
+              console.log("User is not registered for this workshop");
             }
           }
         } else {
+          console.error("Workshop not found for ID:", id);
           toast.error("Workshop not found");
           navigate("/dashboard");
         }
@@ -356,15 +369,33 @@ const WorkshopDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-line">{lesson.content}</p>
+                <p className="line-clamp-3 whitespace-pre-line">{lesson.content}</p>
               </CardContent>
-              {userRole === "jobSeeker" && isRegistered && (
+              {userRole === "jobSeeker" ? (
+                <CardFooter className="flex justify-end">
+                  {isRegistered ? (
+                    <Button 
+                      onClick={() => navigate(`/dashboard/lesson/${lesson.id}`)}
+                      className="bg-teal-600 hover:bg-teal-700"
+                    >
+                      Start Lesson
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleRegisterForWorkshop}
+                      className="bg-teal-600 hover:bg-teal-700"
+                    >
+                      Register to Access
+                    </Button>
+                  )}
+                </CardFooter>
+              ) : (
                 <CardFooter className="flex justify-end">
                   <Button 
                     onClick={() => navigate(`/dashboard/lesson/${lesson.id}`)}
                     className="bg-teal-600 hover:bg-teal-700"
                   >
-                    Start Lesson
+                    View Lesson
                   </Button>
                 </CardFooter>
               )}

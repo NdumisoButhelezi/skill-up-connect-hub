@@ -57,12 +57,15 @@ const LessonDetail = () => {
   const [existingReflection, setExistingReflection] = useState<Reflection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRegistered, setIsRegistered] = useState(false);
 
   useEffect(() => {
     const fetchLessonAndWorkshop = async () => {
       if (!id || !currentUser) return;
       
       try {
+        console.log("Fetching lesson with ID:", id);
+        
         // Fetch lesson
         const lessonDoc = await getDoc(doc(db, "lessons", id));
         
@@ -78,6 +81,23 @@ const LessonDetail = () => {
               id: workshopDoc.id,
               title: workshopDoc.data().title
             });
+            
+            // Check if user is registered for this workshop
+            if (userRole === "jobSeeker") {
+              const registrationsQuery = query(
+                collection(db, "registrations"),
+                where("userId", "==", currentUser.uid),
+                where("workshopId", "==", lessonData.workshopId)
+              );
+              
+              const registrationsSnapshot = await getDocs(registrationsQuery);
+              setIsRegistered(!registrationsSnapshot.empty);
+              
+              // If not registered and not a recruiter, show a message
+              if (registrationsSnapshot.empty && userRole === "jobSeeker") {
+                toast.warning("Please register for the workshop to access lessons");
+              }
+            }
           }
           
           // Check for existing reflection
@@ -110,7 +130,7 @@ const LessonDetail = () => {
     };
     
     fetchLessonAndWorkshop();
-  }, [id, currentUser, navigate]);
+  }, [id, currentUser, navigate, userRole]);
 
   const handleSubmitReflection = async () => {
     if (!currentUser || !lesson || !reflection.trim()) {
@@ -165,6 +185,22 @@ const LessonDetail = () => {
           onClick={() => navigate("/dashboard")}
         >
           Back to Dashboard
+        </Button>
+      </div>
+    );
+  }
+
+  // If user is a job seeker and not registered for the workshop, redirect to workshop page
+  if (userRole === "jobSeeker" && !isRegistered) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-medium text-gray-500">Registration Required</h2>
+        <p className="mb-6 text-gray-400">You need to register for this workshop to access its lessons</p>
+        <Button 
+          className="mt-4" 
+          onClick={() => navigate(`/dashboard/workshop/${lesson.workshopId}`)}
+        >
+          Go to Workshop
         </Button>
       </div>
     );
