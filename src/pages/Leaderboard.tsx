@@ -19,6 +19,14 @@ interface UserScore {
   approvedReflections: number;
 }
 
+// Define the JobSeeker interface to match what we get from Firestore
+interface JobSeeker {
+  id: string;
+  email?: string;
+  role?: string;
+  [key: string]: any; // Allow other properties
+}
+
 const Leaderboard = () => {
   const { currentUser } = useAuth();
   const [leaderboard, setLeaderboard] = useState<UserScore[]>([]);
@@ -35,7 +43,7 @@ const Leaderboard = () => {
         );
         
         const usersSnapshot = await getDocs(usersQuery);
-        const jobSeekers = usersSnapshot.docs.map(doc => ({
+        const jobSeekers: JobSeeker[] = usersSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
@@ -66,7 +74,7 @@ const Leaderboard = () => {
             
             return {
               userId: user.id,
-              email: user.email,
+              email: user.email || "No email",
               totalPoints,
               approvedReflections
             };

@@ -15,6 +15,7 @@ interface UserProfile {
   skills?: string[];
   location?: string;
   linkedIn?: string;
+  [key: string]: any; // Add index signature to make TypeScript happy
 }
 
 const Profile = () => {
@@ -73,7 +74,18 @@ const Profile = () => {
     if (!currentUser) return;
     
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), formData);
+      const userDocRef = doc(db, "users", currentUser.uid);
+      // Create a new object with only the fields we want to update
+      // This ensures we're passing a compatible object to updateDoc
+      const updateData = {
+        displayName: formData.displayName || null,
+        bio: formData.bio || null,
+        skills: formData.skills || [],
+        location: formData.location || null,
+        linkedIn: formData.linkedIn || null
+      };
+      
+      await updateDoc(userDocRef, updateData);
       
       setProfile(formData);
       setIsEditing(false);
