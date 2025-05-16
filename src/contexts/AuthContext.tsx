@@ -38,15 +38,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function signup(email: string, password: string) {
-    await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    return userCredential;
   }
 
   async function login(email: string, password: string) {
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential;
   }
 
   async function logout() {
     await signOut(auth);
+    setCurrentUser(null);
+    setUserRole(null);
   }
 
   async function setUserRoleAndSave(role: UserRole) {

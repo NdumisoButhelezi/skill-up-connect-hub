@@ -23,7 +23,14 @@ import NotFound from "./pages/NotFound";
 // Layouts
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -106,7 +113,7 @@ const App = () => (
             </Route>
             
             {/* Root redirect */}
-            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
