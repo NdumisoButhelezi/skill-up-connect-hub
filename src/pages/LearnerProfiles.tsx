@@ -62,6 +62,13 @@ interface UserScore {
   approvedReflections: number;
 }
 
+interface JobSeeker {
+  id: string;
+  email?: string;
+  role?: string;
+  [key: string]: any; // Allow other properties
+}
+
 const LearnerProfiles = () => {
   const { userRole } = useAuth();
   const navigate = useNavigate();
@@ -132,7 +139,7 @@ const LearnerProfiles = () => {
         );
         
         const usersSnapshot = await getDocs(usersQuery);
-        const jobSeekers = usersSnapshot.docs.map(doc => ({
+        const jobSeekers: JobSeeker[] = usersSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
