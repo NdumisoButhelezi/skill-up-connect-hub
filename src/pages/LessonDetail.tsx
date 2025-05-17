@@ -23,15 +23,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
-} from "@/components/ui/form";
 import { toast } from "sonner";
+import { AlertCircle, ArrowLeft, Award, CheckCircle, Clock, XCircle } from "lucide-react";
 
 interface Lesson {
   id: string;
@@ -76,7 +69,11 @@ const LessonDetail = () => {
 
   useEffect(() => {
     const fetchLessonAndWorkshop = async () => {
-      if (!id || !currentUser) return;
+      if (!id || !currentUser) {
+        console.error("Missing lesson ID or user");
+        setLoading(false);
+        return;
+      }
       
       try {
         console.log("Fetching lesson with ID:", id);
@@ -91,6 +88,13 @@ const LessonDetail = () => {
           
           // Fetch workshop
           const workshopId = lessonData.workshopId;
+          if (!workshopId) {
+            console.error("Lesson is missing workshopId");
+            setError("Invalid lesson data");
+            toast.error("Lesson data is incomplete");
+            return;
+          }
+          
           console.log("Fetching workshop with ID:", workshopId);
           const workshopDoc = await getDoc(doc(db, "workshops", workshopId));
           
@@ -110,12 +114,15 @@ const LessonDetail = () => {
               );
               
               const registrationsSnapshot = await getDocs(registrationsQuery);
-              setIsRegistered(!registrationsSnapshot.empty);
+              const isUserRegistered = !registrationsSnapshot.empty;
+              setIsRegistered(isUserRegistered);
               
-              // If not registered and not a recruiter, show a message
-              if (registrationsSnapshot.empty && userRole === "jobSeeker") {
+              if (!isUserRegistered && userRole === "jobSeeker") {
                 toast.warning("Please register for the workshop to access lessons");
               }
+            } else {
+              // Recruiters always have access
+              setIsRegistered(true);
             }
           } else {
             console.error("Workshop not found for lesson:", id);
@@ -124,27 +131,29 @@ const LessonDetail = () => {
           }
           
           // Check for existing reflection
-          const reflectionsQuery = query(
-            collection(db, "reflections"),
-            where("lessonId", "==", id),
-            where("userId", "==", currentUser.uid)
-          );
-          
-          const reflectionsSnapshot = await getDocs(reflectionsQuery);
-          
-          if (!reflectionsSnapshot.empty) {
-            const reflectionData = {
-              id: reflectionsSnapshot.docs[0].id,
-              ...reflectionsSnapshot.docs[0].data()
-            } as Reflection;
+          if (currentUser) {
+            const reflectionsQuery = query(
+              collection(db, "reflections"),
+              where("lessonId", "==", id),
+              where("userId", "==", currentUser.uid)
+            );
             
-            setExistingReflection(reflectionData);
+            const reflectionsSnapshot = await getDocs(reflectionsQuery);
+            
+            if (!reflectionsSnapshot.empty) {
+              const reflectionData = {
+                id: reflectionsSnapshot.docs[0].id,
+                ...reflectionsSnapshot.docs[0].data()
+              } as Reflection;
+              
+              setExistingReflection(reflectionData);
+              console.log("Found existing reflection:", reflectionData);
+            }
           }
         } else {
           console.error("Lesson not found for ID:", id);
           setError("Lesson not found");
           toast.error("Lesson not found");
-          navigate("/dashboard");
         }
       } catch (error) {
         console.error("Error fetching lesson details:", error);
@@ -204,11 +213,16 @@ const LessonDetail = () => {
     try {
       const reflectionRef = doc(db, "reflections", existingReflection.id);
       
-      await updateDoc(reflectionRef, {
+      const updateData = {
         status: status,
-        points: status === "approved" ? points : 0,
-        feedback: feedback
-      });
+        feedback: feedback.trim() || undefined
+      };
+      
+      if (status === "approved" && points > 0) {
+        updateData.points = points;
+      }
+      
+      await updateDoc(reflectionRef, updateData);
       
       setExistingReflection({
         ...existingReflection,
@@ -229,7 +243,10 @@ const LessonDetail = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
-        <p>Loading lesson...</p>
+        <div className="text-center">
+          <Clock className="mx-auto h-10 w-10 text-gray-400 animate-pulse mb-4" />
+          <p className="text-lg">Loading lesson...</p>
+        </div>
       </div>
     );
   }
@@ -237,13 +254,29 @@ const LessonDetail = () => {
   if (error) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-medium text-red-500">{error}</h2>
+        <div className="flex flex-col items-center justify-center gap-2 mb-4">
+          <AlertCircle className="h-10 w-10 text-red-500" />
+          <h2 className="text-xl font-medium text-red-500">{error}</h2>
+        </div>
+        <p className="text-gray-500 mb-6">
+          There was an error loading the lesson. This could be due to network issues or missing permissions.
+        </p>
         <Button 
           className="mt-4" 
           variant="outline" 
           onClick={() => navigate("/dashboard")}
         >
           Back to Dashboard
+        </Button>
+        <Button 
+          className="mt-4 ml-2" 
+          onClick={() => {
+            setLoading(true);
+            setError(null);
+            window.location.reload();
+          }}
+        >
+          Try Again
         </Button>
       </div>
     );
@@ -287,9 +320,10 @@ const LessonDetail = () => {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Button
               variant="link"
-              className="p-0 h-auto text-gray-500"
+              className="p-0 h-auto text-gray-500 flex items-center gap-1"
               onClick={() => navigate(`/dashboard/workshop/${workshop.id}`)}
             >
+              <ArrowLeft className="h-4 w-4" />
               {workshop.title}
             </Button>
             <span>/</span>
@@ -314,8 +348,11 @@ const LessonDetail = () => {
           {existingReflection ? (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">
+                <CardTitle className="text-lg flex items-center gap-2">
                   Submitted Reflection
+                  {existingReflection.status === "approved" && <CheckCircle className="text-green-500 h-5 w-5" />}
+                  {existingReflection.status === "pending" && <Clock className="text-yellow-500 h-5 w-5" />}
+                  {existingReflection.status === "rejected" && <XCircle className="text-red-500 h-5 w-5" />}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -338,9 +375,10 @@ const LessonDetail = () => {
                           : "Pending Review"}
                       </span>
                     </p>
-                    {existingReflection.points !== undefined && (
-                      <p className="text-sm mt-1">
-                        Points: {existingReflection.points > 0 ? `+${existingReflection.points}` : existingReflection.points}
+                    {existingReflection.points !== undefined && existingReflection.points > 0 && (
+                      <p className="text-sm mt-1 flex items-center gap-1">
+                        <Award className="h-4 w-4 text-teal-600" />
+                        Points: +{existingReflection.points}
                       </p>
                     )}
                   </div>
@@ -423,7 +461,7 @@ const LessonDetail = () => {
                   min={0}
                   max={100}
                   value={points}
-                  onChange={(e) => setPoints(parseInt(e.target.value))}
+                  onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
                   disabled={isUpdatingReflection || existingReflection.status !== "pending"}
                   className="max-w-xs"
                 />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +11,8 @@ import {
   where, 
   getDocs,
   deleteDoc,
-  orderBy
+  orderBy,
+  limit
 } from "firebase/firestore";
 import { 
   Card, 
@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
 
 interface Workshop {
   id: string;
@@ -91,21 +92,48 @@ const WorkshopDetail = () => {
           console.log("Workshop data:", workshopData);
           setWorkshop(workshopData);
           
-          // Fetch lessons
-          const lessonsQuery = query(
-            collection(db, "lessons"),
-            where("workshopId", "==", id),
-            orderBy("createdAt", "asc")
-          );
-          
-          const lessonsSnapshot = await getDocs(lessonsQuery);
-          const lessonsData = lessonsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as Lesson[];
-          
-          console.log("Lessons:", lessonsData);
-          setLessons(lessonsData);
+          // Fetch lessons - modified approach to avoid index requirements
+          try {
+            // First attempt with the ideal query
+            const lessonsQuery = query(
+              collection(db, "lessons"),
+              where("workshopId", "==", id),
+              orderBy("createdAt", "asc")
+            );
+            
+            const lessonsSnapshot = await getDocs(lessonsQuery);
+            const lessonsData = lessonsSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Lesson[];
+            
+            console.log("Lessons:", lessonsData);
+            setLessons(lessonsData);
+          } catch (lessonsError) {
+            console.warn("Error with ordered lessons query, trying fallback:", lessonsError);
+            
+            // Fallback to unordered query
+            const fallbackQuery = query(
+              collection(db, "lessons"),
+              where("workshopId", "==", id)
+            );
+            
+            const fallbackSnapshot = await getDocs(fallbackQuery);
+            let fallbackData = fallbackSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Lesson[];
+            
+            // Manual sorting by createdAt
+            fallbackData.sort((a, b) => {
+              const dateA = new Date(a.createdAt).getTime();
+              const dateB = new Date(b.createdAt).getTime();
+              return dateA - dateB;
+            });
+            
+            console.log("Fallback lessons:", fallbackData);
+            setLessons(fallbackData);
+          }
           
           // Check if user is registered
           if (currentUser) {
@@ -224,7 +252,7 @@ const WorkshopDetail = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
-        <p>Loading workshop details...</p>
+        <p className="text-lg">Loading workshop details...</p>
       </div>
     );
   }
@@ -232,13 +260,29 @@ const WorkshopDetail = () => {
   if (error) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-medium text-red-500">{error}</h2>
+        <div className="flex flex-col items-center justify-center gap-2 mb-4">
+          <AlertCircle className="h-10 w-10 text-red-500" />
+          <h2 className="text-xl font-medium text-red-500">{error}</h2>
+        </div>
+        <p className="text-gray-500 mb-6">
+          There was an error loading the workshop details. This could be due to network issues or missing permissions.
+        </p>
         <Button 
           className="mt-4" 
           variant="outline" 
           onClick={() => navigate("/dashboard")}
         >
           Back to Dashboard
+        </Button>
+        <Button 
+          className="mt-4 ml-2" 
+          onClick={() => {
+            setLoading(true);
+            setError(null);
+            window.location.reload();
+          }}
+        >
+          Try Again
         </Button>
       </div>
     );
