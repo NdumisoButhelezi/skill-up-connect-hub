@@ -1,11 +1,16 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, getCountFromServer } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { AlertCircle, Award } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "sonner";
+import BadgeDisplay from "@/components/BadgeDisplay";
+import { calculateRecruiterBadges } from "@/utils/badgeSystem";
 
 interface Workshop {
   id: string;
@@ -18,16 +23,43 @@ interface Workshop {
 }
 
 const Dashboard = () => {
-  const { userRole } = useAuth();
+  const { userRole, currentUser } = useAuth();
   const navigate = useNavigate();
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [workshopCount, setWorkshopCount] = useState(0);
+  const [recruiterBadges, setRecruiterBadges] = useState([]);
+  const [showPaymentAlert, setShowPaymentAlert] = useState(false);
+  const [hasPaid, setHasPaid] = useState(false);
 
   useEffect(() => {
     const fetchWorkshops = async () => {
       try {
         const workshopsRef = collection(db, "workshops");
-        const workshopsSnapshot = await getDocs(workshopsRef);
+        let workshopsQuery;
+        
+        // For recruiters, only show their workshops
+        if (userRole === "recruiter" && currentUser) {
+          workshopsQuery = query(workshopsRef, where("createdBy", "==", currentUser.uid));
+          
+          // Get count of workshops
+          const countSnapshot = await getCountFromServer(workshopsQuery);
+          const count = countSnapshot.data().count;
+          setWorkshopCount(count);
+          
+          // Calculate badges
+          const badges = calculateRecruiterBadges(count);
+          setRecruiterBadges(badges);
+          
+          // Check if payment alert should be shown
+          if (count >= 5 && !hasPaid) {
+            setShowPaymentAlert(true);
+          }
+        } else {
+          workshopsQuery = workshopsRef;
+        }
+        
+        const workshopsSnapshot = await getDocs(workshopsQuery);
         
         const workshopsData = workshopsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -43,7 +75,14 @@ const Dashboard = () => {
     };
 
     fetchWorkshops();
-  }, []);
+  }, [userRole, currentUser, hasPaid]);
+
+  const handlePayment = () => {
+    // Simulate successful payment
+    toast.success("Payment processed successfully!");
+    setHasPaid(true);
+    setShowPaymentAlert(false);
+  };
 
   const JobSeekerDashboard = () => (
     <div>
@@ -84,14 +123,42 @@ const Dashboard = () => {
 
   const RecruiterDashboard = () => (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Manage Workshops</h1>
-        <Button 
-          className="bg-teal-600 hover:bg-teal-700"
-          onClick={() => navigate("/dashboard/create-workshop")}
-        >
-          Create Workshop
-        </Button>
+      {showPaymentAlert && (
+        <Alert className="mb-6 border-yellow-400 bg-yellow-50">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertTitle>Workshop Limit Reached</AlertTitle>
+          <AlertDescription>
+            You've created 5 workshops, which is the free limit. Subscribe to create unlimited workshops.
+            <div className="mt-4">
+              <Button 
+                onClick={handlePayment}
+                className="bg-teal-600 hover:bg-teal-700"
+              >
+                Subscribe - $29.99/month
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Manage Workshops</h1>
+          <p className="text-gray-600">You have created {workshopCount} workshop{workshopCount !== 1 ? 's' : ''}</p>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          {recruiterBadges && recruiterBadges.length > 0 && (
+            <BadgeDisplay badges={recruiterBadges} />
+          )}
+          <Button 
+            className="bg-teal-600 hover:bg-teal-700 whitespace-nowrap"
+            onClick={() => navigate("/dashboard/create-workshop")}
+            disabled={workshopCount >= 5 && !hasPaid}
+          >
+            Create Workshop
+          </Button>
+        </div>
       </div>
 
       {loading ? (

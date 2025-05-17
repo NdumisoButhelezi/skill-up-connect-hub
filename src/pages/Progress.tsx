@@ -13,6 +13,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import BadgeDisplay from "@/components/BadgeDisplay";
+import { calculateUserBadges } from "@/utils/badgeSystem";
 
 interface Reflection {
   id: string;
@@ -46,6 +49,8 @@ const Progress = () => {
   const [reflections, setReflections] = useState<ReflectionWithDetails[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [userBadges, setUserBadges] = useState([]);
+  const [completedWorkshops, setCompletedWorkshops] = useState(0);
   
   // Redirect if user is not a job seeker
   if (userRole !== "jobSeeker") {
@@ -80,6 +85,10 @@ const Progress = () => {
         
         setTotalPoints(points);
         
+        // Get completed workshops count (unique workshopIds from approved reflections)
+        const approvedReflections = reflectionsData.filter(r => r.status === "approved");
+        const uniqueWorkshops = new Set();
+        
         // Fetch lesson and workshop details for each reflection
         const reflectionsWithDetails = await Promise.all(
           reflectionsData.map(async (reflection) => {
@@ -97,6 +106,11 @@ const Progress = () => {
               ...workshopDoc.data()
             } as Workshop;
             
+            // Count unique workshops with approved reflections
+            if (reflection.status === "approved") {
+              uniqueWorkshops.add(workshopData.id);
+            }
+            
             return {
               ...reflection,
               lesson: lessonData,
@@ -104,6 +118,16 @@ const Progress = () => {
             };
           })
         );
+        
+        // Calculate badges based on user stats
+        const workshopsCompleted = uniqueWorkshops.size;
+        setCompletedWorkshops(workshopsCompleted);
+        const badges = calculateUserBadges(
+          points,
+          approvedReflections.length,
+          workshopsCompleted
+        );
+        setUserBadges(badges);
         
         // Sort by submission date (newest first)
         reflectionsWithDetails.sort((a, b) => 
@@ -161,6 +185,20 @@ const Progress = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Badges Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">Earned Badges</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {userBadges && userBadges.length > 0 ? (
+            <BadgeDisplay badges={userBadges} />
+          ) : (
+            <p className="text-gray-500">Complete lessons and earn points to unlock badges</p>
+          )}
+        </CardContent>
+      </Card>
       
       <h2 className="text-xl font-bold mb-4">Your Reflections</h2>
       

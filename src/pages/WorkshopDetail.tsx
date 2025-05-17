@@ -27,6 +27,8 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
+import WorkshopStatistics from "@/components/WorkshopStatistics";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Workshop {
   id: string;
@@ -70,6 +72,7 @@ const WorkshopDetail = () => {
   const [newLessonContent, setNewLessonContent] = useState("");
   const [isAddingLesson, setIsAddingLesson] = useState(false);
   const [isSubmittingLesson, setIsSubmittingLesson] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     const fetchWorkshopAndLessons = async () => {
@@ -342,138 +345,183 @@ const WorkshopDetail = () => {
         )}
       </div>
       
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>About This Workshop</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="whitespace-pre-line">{workshop.description}</p>
-        </CardContent>
-      </Card>
-      
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h2 className="text-xl font-bold">Lessons</h2>
-        
-        {userRole === "recruiter" && !isAddingLesson && (
-          <Button 
-            onClick={() => setIsAddingLesson(true)}
-            className="bg-teal-600 hover:bg-teal-700"
-          >
-            Add Lesson
-          </Button>
-        )}
-      </div>
-      
-      {userRole === "recruiter" && isAddingLesson && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Add New Lesson</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAddLesson} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="lessonTitle" className="font-medium">
-                  Lesson Title
-                </label>
-                <input 
-                  type="text"
-                  id="lessonTitle"
-                  value={newLessonTitle}
-                  onChange={(e) => setNewLessonTitle(e.target.value)}
-                  placeholder="Enter lesson title"
-                  className="w-full p-2 border rounded"
-                  disabled={isSubmittingLesson}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="lessonContent" className="font-medium">
-                  Lesson Content
-                </label>
-                <Textarea
-                  id="lessonContent"
-                  value={newLessonContent}
-                  onChange={(e) => setNewLessonContent(e.target.value)}
-                  placeholder="Enter lesson content"
-                  rows={6}
-                  disabled={isSubmittingLesson}
-                  required
-                />
-              </div>
-            </form>
-          </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsAddingLesson(false)}
-              disabled={isSubmittingLesson}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleAddLesson}
-              disabled={isSubmittingLesson}
-              className="bg-teal-600 hover:bg-teal-700"
-            >
-              {isSubmittingLesson ? "Adding..." : "Add Lesson"}
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-      
-      {lessons.length > 0 ? (
-        <div className="space-y-4">
-          {lessons.map((lesson, index) => (
-            <Card key={lesson.id} className="mb-4">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">
-                  Lesson {index + 1}: {lesson.title}
-                </CardTitle>
+      {userRole === "recruiter" && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="statistics">Statistics</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="mt-4">
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>About This Workshop</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="line-clamp-3 whitespace-pre-line">{lesson.content}</p>
+                <p className="whitespace-pre-line">{workshop.description}</p>
               </CardContent>
-              {userRole === "jobSeeker" ? (
-                <CardFooter className="flex justify-end">
-                  {isRegistered ? (
-                    <Button 
-                      onClick={() => navigate(`/dashboard/lesson/${lesson.id}`)}
-                      className="bg-teal-600 hover:bg-teal-700"
-                    >
-                      Start Lesson
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleRegisterForWorkshop}
-                      className="bg-teal-600 hover:bg-teal-700"
-                    >
-                      Register to Access
-                    </Button>
-                  )}
-                </CardFooter>
-              ) : (
-                <CardFooter className="flex justify-end">
+            </Card>
+            
+            <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <h2 className="text-xl font-bold">Lessons</h2>
+              
+              {!isAddingLesson && (
+                <Button 
+                  onClick={() => setIsAddingLesson(true)}
+                  className="bg-teal-600 hover:bg-teal-700"
+                >
+                  Add Lesson
+                </Button>
+              )}
+            </div>
+            
+            {isAddingLesson && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle>Add New Lesson</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleAddLesson} className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="lessonTitle" className="font-medium">
+                        Lesson Title
+                      </label>
+                      <input 
+                        type="text"
+                        id="lessonTitle"
+                        value={newLessonTitle}
+                        onChange={(e) => setNewLessonTitle(e.target.value)}
+                        placeholder="Enter lesson title"
+                        className="w-full p-2 border rounded"
+                        disabled={isSubmittingLesson}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label htmlFor="lessonContent" className="font-medium">
+                        Lesson Content
+                      </label>
+                      <Textarea
+                        id="lessonContent"
+                        value={newLessonContent}
+                        onChange={(e) => setNewLessonContent(e.target.value)}
+                        placeholder="Enter lesson content"
+                        rows={6}
+                        disabled={isSubmittingLesson}
+                        required
+                      />
+                    </div>
+                  </form>
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2">
                   <Button 
-                    onClick={() => navigate(`/dashboard/lesson/${lesson.id}`)}
+                    variant="outline" 
+                    onClick={() => setIsAddingLesson(false)}
+                    disabled={isSubmittingLesson}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleAddLesson}
+                    disabled={isSubmittingLesson}
                     className="bg-teal-600 hover:bg-teal-700"
                   >
-                    View Lesson
+                    {isSubmittingLesson ? "Adding..." : "Add Lesson"}
                   </Button>
                 </CardFooter>
-              )}
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <h3 className="text-xl font-medium text-gray-500">No lessons available yet</h3>
-          {userRole === "recruiter" ? (
-            <p className="text-gray-400">Add your first lesson to get started</p>
+              </Card>
+            )}
+            
+            {lessons.length > 0 ? (
+              <div className="space-y-4">
+                {lessons.map((lesson, index) => (
+                  <Card key={lesson.id} className="mb-4">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">
+                        Lesson {index + 1}: {lesson.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="line-clamp-3 whitespace-pre-line">{lesson.content}</p>
+                    </CardContent>
+                    <CardFooter className="flex justify-end">
+                      <Button 
+                        onClick={() => navigate(`/dashboard/lesson/${lesson.id}`)}
+                        className="bg-teal-600 hover:bg-teal-700"
+                      >
+                        View Lesson
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <h3 className="text-xl font-medium text-gray-500">No lessons available yet</h3>
+                <p className="text-gray-400">Add your first lesson to get started</p>
+              </div>
+            )}
+          </TabsContent>
+          <TabsContent value="statistics" className="mt-4">
+            <WorkshopStatistics workshopId={workshop.id} />
+          </TabsContent>
+        </Tabs>
+      )}
+      
+      {userRole === "jobSeeker" && (
+        <>
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>About This Workshop</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-line">{workshop.description}</p>
+            </CardContent>
+          </Card>
+          
+          <div className="mb-6">
+            <h2 className="text-xl font-bold">Lessons</h2>
+          </div>
+          
+          {lessons.length > 0 ? (
+            <div className="space-y-4">
+              {lessons.map((lesson, index) => (
+                <Card key={lesson.id} className="mb-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg">
+                      Lesson {index + 1}: {lesson.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="line-clamp-3 whitespace-pre-line">{lesson.content}</p>
+                  </CardContent>
+                  <CardFooter className="flex justify-end">
+                    {isRegistered ? (
+                      <Button 
+                        onClick={() => navigate(`/dashboard/lesson/${lesson.id}`)}
+                        className="bg-teal-600 hover:bg-teal-700"
+                      >
+                        Start Lesson
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleRegisterForWorkshop}
+                        className="bg-teal-600 hover:bg-teal-700"
+                      >
+                        Register to Access
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           ) : (
-            <p className="text-gray-400">Check back later for new lessons</p>
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <h3 className="text-xl font-medium text-gray-500">No lessons available yet</h3>
+              <p className="text-gray-400">Check back later for new lessons</p>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

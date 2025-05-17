@@ -11,12 +11,16 @@ import {
   getDoc 
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import BadgeDisplay from "@/components/BadgeDisplay";
+import { calculateUserBadges } from "@/utils/badgeSystem";
 
 interface UserScore {
   userId: string;
   email: string;
   totalPoints: number;
   approvedReflections: number;
+  completedWorkshops: number;
+  badges: any[]; // Will store calculated badges
 }
 
 // Define the JobSeeker interface to match what we get from Firestore
@@ -62,6 +66,9 @@ const Leaderboard = () => {
             let totalPoints = 0;
             let approvedReflections = 0;
             
+            // Track unique workshops with approved reflections
+            const uniqueWorkshops = new Set();
+            
             reflections.forEach(reflection => {
               if (reflection.points) {
                 totalPoints += reflection.points;
@@ -69,14 +76,28 @@ const Leaderboard = () => {
               
               if (reflection.status === "approved") {
                 approvedReflections++;
+                if (reflection.workshopId) {
+                  uniqueWorkshops.add(reflection.workshopId);
+                }
               }
             });
+            
+            const completedWorkshops = uniqueWorkshops.size;
+            
+            // Calculate badges
+            const badges = calculateUserBadges(
+              totalPoints,
+              approvedReflections,
+              completedWorkshops
+            );
             
             return {
               userId: user.id,
               email: user.email || "No email",
               totalPoints,
-              approvedReflections
+              approvedReflections,
+              completedWorkshops,
+              badges
             };
           })
         );
@@ -125,6 +146,14 @@ const Leaderboard = () => {
                 </p>
               </div>
             </div>
+            {/* Show user's badges */}
+            {currentUser && (
+              <div className="mt-4">
+                <BadgeDisplay 
+                  badges={leaderboard.find(user => user.userId === currentUser.uid)?.badges || []} 
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -145,6 +174,7 @@ const Leaderboard = () => {
                   <tr className="border-b">
                     <th className="text-left py-3 px-4">Rank</th>
                     <th className="text-left py-3 px-4">Learner</th>
+                    <th className="text-center py-3 px-4">Badges</th>
                     <th className="text-right py-3 px-4">Points</th>
                     <th className="text-right py-3 px-4">Completed</th>
                   </tr>
@@ -177,6 +207,26 @@ const Leaderboard = () => {
                       <td className="py-3 px-4">
                         {user.email}
                         {user.userId === currentUser?.uid && " (You)"}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex justify-center">
+                          {user.badges && user.badges.length > 0 ? (
+                            <div className="flex space-x-1">
+                              {user.badges.slice(0, 3).map((badge, i) => (
+                                <span key={i} title={badge.name} className="text-lg">
+                                  {badge.icon}
+                                </span>
+                              ))}
+                              {user.badges.length > 3 && (
+                                <span className="text-xs text-gray-500 self-end">
+                                  +{user.badges.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-right font-medium">
                         {user.totalPoints}
