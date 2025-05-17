@@ -63,6 +63,7 @@ const WorkshopDetail = () => {
   const [loading, setLoading] = useState(true);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   const [newLessonTitle, setNewLessonTitle] = useState("");
   const [newLessonContent, setNewLessonContent] = useState("");
@@ -73,6 +74,7 @@ const WorkshopDetail = () => {
     const fetchWorkshopAndLessons = async () => {
       if (!id) {
         console.error("No workshop ID provided");
+        setError("Workshop ID is missing");
         toast.error("Workshop ID is missing");
         navigate("/dashboard");
         return;
@@ -126,11 +128,12 @@ const WorkshopDetail = () => {
           }
         } else {
           console.error("Workshop not found for ID:", id);
+          setError("Workshop not found");
           toast.error("Workshop not found");
-          navigate("/dashboard");
         }
       } catch (error) {
         console.error("Error fetching workshop details:", error);
+        setError("Failed to load workshop details. Please try again.");
         toast.error("Failed to load workshop details");
       } finally {
         setLoading(false);
@@ -222,6 +225,21 @@ const WorkshopDetail = () => {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
         <p>Loading workshop details...</p>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-medium text-red-500">{error}</h2>
+        <Button 
+          className="mt-4" 
+          variant="outline" 
+          onClick={() => navigate("/dashboard")}
+        >
+          Back to Dashboard
+        </Button>
       </div>
     );
   }

@@ -10,7 +10,8 @@ import {
   addDoc,
   query,
   where,
-  getDocs
+  getDocs,
+  updateDoc
 } from "firebase/firestore";
 import { 
   Card, 
@@ -21,6 +22,15 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
+} from "@/components/ui/form";
 import { toast } from "sonner";
 
 interface Lesson {
@@ -44,6 +54,7 @@ interface Reflection {
   status: "pending" | "approved" | "rejected";
   submittedAt: string;
   points?: number;
+  feedback?: string;
 }
 
 const LessonDetail = () => {
@@ -58,6 +69,10 @@ const LessonDetail = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [points, setPoints] = useState<number>(0);
+  const [isUpdatingReflection, setIsUpdatingReflection] = useState(false);
 
   useEffect(() => {
     const fetchLessonAndWorkshop = async () => {
@@ -71,15 +86,19 @@ const LessonDetail = () => {
         
         if (lessonDoc.exists()) {
           const lessonData = { id: lessonDoc.id, ...lessonDoc.data() } as Lesson;
+          console.log("Lesson data:", lessonData);
           setLesson(lessonData);
           
           // Fetch workshop
-          const workshopDoc = await getDoc(doc(db, "workshops", lessonData.workshopId));
+          const workshopId = lessonData.workshopId;
+          console.log("Fetching workshop with ID:", workshopId);
+          const workshopDoc = await getDoc(doc(db, "workshops", workshopId));
           
           if (workshopDoc.exists()) {
+            const workshopData = workshopDoc.data();
             setWorkshop({
               id: workshopDoc.id,
-              title: workshopDoc.data().title
+              title: workshopData.title
             });
             
             // Check if user is registered for this workshop
@@ -98,6 +117,10 @@ const LessonDetail = () => {
                 toast.warning("Please register for the workshop to access lessons");
               }
             }
+          } else {
+            console.error("Workshop not found for lesson:", id);
+            setError("Workshop not found");
+            toast.error("Workshop details could not be loaded");
           }
           
           // Check for existing reflection
@@ -118,11 +141,14 @@ const LessonDetail = () => {
             setExistingReflection(reflectionData);
           }
         } else {
+          console.error("Lesson not found for ID:", id);
+          setError("Lesson not found");
           toast.error("Lesson not found");
           navigate("/dashboard");
         }
       } catch (error) {
         console.error("Error fetching lesson details:", error);
+        setError("Failed to load lesson details");
         toast.error("Failed to load lesson details");
       } finally {
         setLoading(false);
@@ -167,10 +193,58 @@ const LessonDetail = () => {
     }
   };
 
+  const handleUpdateReflectionStatus = async (status: "approved" | "rejected") => {
+    if (!existingReflection?.id) {
+      toast.error("No reflection to update");
+      return;
+    }
+    
+    setIsUpdatingReflection(true);
+    
+    try {
+      const reflectionRef = doc(db, "reflections", existingReflection.id);
+      
+      await updateDoc(reflectionRef, {
+        status: status,
+        points: status === "approved" ? points : 0,
+        feedback: feedback
+      });
+      
+      setExistingReflection({
+        ...existingReflection,
+        status: status,
+        points: status === "approved" ? points : 0,
+        feedback: feedback
+      });
+      
+      toast.success(`Reflection ${status === "approved" ? "approved" : "rejected"} successfully`);
+    } catch (error) {
+      console.error("Error updating reflection:", error);
+      toast.error("Failed to update reflection status");
+    } finally {
+      setIsUpdatingReflection(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
         <p>Loading lesson...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-medium text-red-500">{error}</h2>
+        <Button 
+          className="mt-4" 
+          variant="outline" 
+          onClick={() => navigate("/dashboard")}
+        >
+          Back to Dashboard
+        </Button>
       </div>
     );
   }
@@ -247,7 +321,7 @@ const LessonDetail = () => {
               <CardContent>
                 <p className="whitespace-pre-line">{existingReflection.content}</p>
                 
-                <div className="mt-4 p-3 rounded-md flex items-center justify-between">
+                <div className="mt-4 p-3 rounded-md flex items-center justify-between bg-gray-50">
                   <div>
                     <p className="font-medium">Status: 
                       <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
@@ -271,6 +345,13 @@ const LessonDetail = () => {
                     )}
                   </div>
                 </div>
+                
+                {existingReflection.feedback && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                    <h3 className="font-medium mb-2">Feedback:</h3>
+                    <p className="text-gray-700">{existingReflection.feedback}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -302,6 +383,72 @@ const LessonDetail = () => {
             </Card>
           )}
         </>
+      )}
+
+      {userRole === "recruiter" && existingReflection && (
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="text-lg">Review Reflection</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium mb-2">Student Reflection:</h3>
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <p className="whitespace-pre-line">{existingReflection.content}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="feedback" className="font-medium block mb-2">
+                  Provide Feedback:
+                </label>
+                <Textarea 
+                  id="feedback"
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Provide constructive feedback on this reflection..."
+                  rows={4}
+                  disabled={isUpdatingReflection || existingReflection.status !== "pending"}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="points" className="font-medium block mb-2">
+                  Award Points (if approving):
+                </label>
+                <Input
+                  id="points"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={points}
+                  onChange={(e) => setPoints(parseInt(e.target.value))}
+                  disabled={isUpdatingReflection || existingReflection.status !== "pending"}
+                  className="max-w-xs"
+                />
+              </div>
+              
+              <div className="pt-4 flex justify-end gap-2">
+                <Button
+                  onClick={() => handleUpdateReflectionStatus("rejected")}
+                  disabled={isUpdatingReflection || existingReflection.status !== "pending"}
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Reject
+                </Button>
+                <Button
+                  onClick={() => handleUpdateReflectionStatus("approved")}
+                  disabled={isUpdatingReflection || existingReflection.status !== "pending"}
+                  className="bg-teal-600 hover:bg-teal-700"
+                >
+                  Approve
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
