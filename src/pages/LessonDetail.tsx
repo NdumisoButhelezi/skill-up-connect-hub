@@ -213,11 +213,17 @@ const LessonDetail = () => {
     try {
       const reflectionRef = doc(db, "reflections", existingReflection.id);
       
-      const updateData = {
+      // Fix: Define the update data with the correct type that includes optional points
+      const updateData: {
+        status: "approved" | "rejected";
+        feedback: string | undefined;
+        points?: number;
+      } = {
         status: status,
         feedback: feedback.trim() || undefined
       };
       
+      // Only add points if approved and points > 0
       if (status === "approved" && points > 0) {
         updateData.points = points;
       }
