@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { collection, getDocs, query, where, getCountFromServer } from "firebase/firestore";
+import { collection, getDocs, query, where, getCountFromServer, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,8 +62,8 @@ const Dashboard = () => {
         const workshopsSnapshot = await getDocs(workshopsQuery);
         
         const workshopsData = workshopsSnapshot.docs.map(doc => {
-          // Ensure we're working with an object by using doc.data()
-          const data = doc.data();
+          // Ensure we're working with an object by using doc.data() and casting it to DocumentData
+          const data = doc.data() as DocumentData;
           return {
             id: doc.id,
             title: data.title || "",
@@ -72,7 +72,7 @@ const Dashboard = () => {
             difficulty: data.difficulty || "beginner",
             createdBy: data.createdBy || "",
             createdAt: data.createdAt || "",
-          };
+          } as Workshop;
         });
         
         setWorkshops(workshopsData);
