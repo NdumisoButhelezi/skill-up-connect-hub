@@ -107,6 +107,7 @@ const WorkshopDetail = () => {
           
           // Check if user is registered
           if (currentUser) {
+            console.log("Checking if user is registered, user ID:", currentUser.uid);
             const registrationsQuery = query(
               collection(db, "registrations"),
               where("userId", "==", currentUser.uid),
