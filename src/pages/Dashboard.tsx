@@ -61,10 +61,19 @@ const Dashboard = () => {
         
         const workshopsSnapshot = await getDocs(workshopsQuery);
         
-        const workshopsData = workshopsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Workshop));
+        const workshopsData = workshopsSnapshot.docs.map(doc => {
+          // Ensure we're working with an object by using doc.data()
+          const data = doc.data();
+          return {
+            id: doc.id,
+            title: data.title || "",
+            description: data.description || "",
+            skills: data.skills || [],
+            difficulty: data.difficulty || "beginner",
+            createdBy: data.createdBy || "",
+            createdAt: data.createdAt || "",
+          };
+        });
         
         setWorkshops(workshopsData);
       } catch (error) {
